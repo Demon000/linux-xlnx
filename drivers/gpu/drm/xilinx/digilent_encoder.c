@@ -114,7 +114,7 @@ static int digilent_encoder_get_modes(struct drm_encoder *encoder,
        *Other drivers tend to call update edid property after the call to 
        *drm_add_edid_modes. If problems with modesetting, this could be why.
        */
-      drm_mode_connector_update_edid_property(connector, edid);
+      drm_connector_update_edid_property(connector, edid);
       if (edid) 
       {
          num_modes = drm_add_edid_modes(connector, edid);
