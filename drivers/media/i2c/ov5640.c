@@ -1893,6 +1893,62 @@ static int ov5640_set_mode_direct(struct ov5640_dev *sensor,
 	return ov5640_load_regs(sensor, mode);
 }
 
+static const int reg_pairs[] = {
+	0x3000, 0x3052,
+	0x3100, 0x3108,
+	0x3200, 0x3211,
+	0x3400, 0x3406,
+	0x3500, 0x350D,
+	0x3600, 0x3606,
+	0x3800, 0x3821,
+	0x3A00, 0x3A25,
+	0x3B00, 0x3B0C,
+	0x3C00, 0x3C1E,
+	0x3D00, 0x3D21,
+	0x3F00, 0x3F0D,
+	0x4000, 0x4033,
+	0x4201, 0x4202,
+	0x4300, 0x430D,
+	0x4400, 0x4431,
+	0x4600, 0x460D,
+	0x4709, 0x4745,
+	0x4800, 0x4837,
+	0x4901, 0x4902,
+	0x5000, 0x5063,
+	0x5180, 0x51D0,
+	0x5300, 0x530F,
+	0x5380, 0x538B,
+	0x5480, 0x5490,
+	0x5580, 0x558C,
+	0x5600, 0x5606,
+	0x5680, 0x56A2,
+	0x5800, 0x5849,
+	0x6000, 0x603F,
+};
+
+static void ov5640_dump_registers(struct ov5640_dev *sensor)
+{
+	int first_reg, last_reg, current_reg;
+	u8 value;
+	int ret;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(reg_pairs); i += 2) {
+		first_reg = reg_pairs[i];
+		last_reg = reg_pairs[i + 1];
+
+		printk("%s: %X - %X\n", __func__, first_reg, last_reg);
+
+		for (current_reg = first_reg; current_reg <= last_reg; current_reg++) {
+			ret = ov5640_read_reg(sensor, current_reg, &value);
+			printk("%s: %X %02X\n", __func__, current_reg, value);
+		}
+
+		printk("%s: end\n", __func__);
+	}
+}
+
+
 static int ov5640_set_mode(struct ov5640_dev *sensor)
 {
 	const struct ov5640_mode_info *mode = sensor->current_mode;
@@ -2916,6 +2972,9 @@ static int ov5640_s_stream(struct v4l2_subdev *sd, int enable)
 		if (!ret)
 			sensor->streaming = enable;
 	}
+
+	ov5640_dump_registers(sensor);
+
 out:
 	mutex_unlock(&sensor->lock);
 	return ret;
