@@ -120,13 +120,6 @@ static int axidma_of_parse_channel(struct device_node *dma_node, int channel,
     }
     chan->channel_id = channel_id;
 
-    rc = of_address_to_resource(dma_node, 0, &dma_res);
-    if (rc) {
-        axidma_err("Unable to read the memory resource for the dma node.\n");
-        return -EINVAL;
-    }
-    chan->dma_addr = dma_res.start;
-
     // Use the compatible string to determine the channel's information
     rc = axidma_parse_compatible_property(dma_chan_node, chan, dev);
     if (rc < 0) {
