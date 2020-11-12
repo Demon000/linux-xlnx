@@ -150,11 +150,11 @@ static struct drm_encoder_slave_funcs digilent_encoder_slave_funcs = {
 	.get_modes		= digilent_encoder_get_modes,
 };
 
-static int digilent_encoder_encoder_init(struct platform_device *pdev,
+static int digilent_encoder_encoder_init(struct i2c_client *i2c,
 					  struct drm_device *dev,
 					  struct drm_encoder_slave *encoder)
 {
-	struct digilent_encoder *digilent = platform_get_drvdata(pdev);
+	struct digilent_encoder *digilent = i2c_get_clientdata(i2c);
 	struct device_node *sub_node;
 	int ret;
 
@@ -166,7 +166,7 @@ static int digilent_encoder_encoder_init(struct platform_device *pdev,
 	/* get i2c adapter for edid */
 	digilent->i2c_present = false;
 
-	sub_node = of_parse_phandle(pdev->dev.of_node, "digilent,edid-i2c", 0);
+	sub_node = of_parse_phandle(dev->of_node, "digilent,edid-i2c", 0);
 	if (sub_node) {
 		digilent->i2c_bus = of_find_i2c_adapter_by_node(sub_node);
 		if (!digilent->i2c_bus)
@@ -176,32 +176,32 @@ static int digilent_encoder_encoder_init(struct platform_device *pdev,
 		of_node_put(sub_node);
 	}
 
-	ret = of_property_read_u32(pdev->dev.of_node, "digilent,fmax", &digilent->fmax);
+	ret = of_property_read_u32(dev->of_node, "digilent,fmax", &digilent->fmax);
 	if (ret < 0) {
 		digilent->fmax = DIGILENT_ENC_MAX_FREQ;
 		DRM_INFO("No max frequency in DT, using default %dKHz\n", DIGILENT_ENC_MAX_FREQ);
 	}
 
-	ret = of_property_read_u32(pdev->dev.of_node, "digilent,hmax", &digilent->hmax);
+	ret = of_property_read_u32(dev->of_node, "digilent,hmax", &digilent->hmax);
 	if (ret < 0) {
 		digilent->hmax = DIGILENT_ENC_MAX_H;
 		DRM_INFO("No max horizontal width in DT, using default %d\n", DIGILENT_ENC_MAX_H);
 	}
 
-	ret = of_property_read_u32(pdev->dev.of_node, "digilent,vmax", &digilent->vmax);
+	ret = of_property_read_u32(dev->of_node, "digilent,vmax", &digilent->vmax);
 	if (ret < 0) {
 		digilent->vmax = DIGILENT_ENC_MAX_V;
 		DRM_INFO("No max vertical height in DT, using default %d\n", DIGILENT_ENC_MAX_V);
 	}
 
-	ret = of_property_read_u32(pdev->dev.of_node, "digilent,hpref", &digilent->hpref);
+	ret = of_property_read_u32(dev->of_node, "digilent,hpref", &digilent->hpref);
 	if (ret < 0) {
 		digilent->hpref = DIGILENT_ENC_PREF_H;
 		if (!digilent->i2c_present)
 			DRM_INFO("No pref horizontal width in DT, using default %d\n", DIGILENT_ENC_PREF_H);
 	}
 
-	ret = of_property_read_u32(pdev->dev.of_node, "digilent,vpref", &digilent->vpref);
+	ret = of_property_read_u32(dev->of_node, "digilent,vpref", &digilent->vpref);
 	if (ret < 0) {
 		digilent->vpref = DIGILENT_ENC_PREF_V;
 		if (!digilent->i2c_present)
@@ -211,39 +211,47 @@ static int digilent_encoder_encoder_init(struct platform_device *pdev,
 	return 0;
 }
 
-static int digilent_encoder_probe(struct platform_device *pdev)
+static int digilent_encoder_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 {
 	struct digilent_encoder *digilent;
+	struct device *dev = &i2c->dev;
 
-	digilent = devm_kzalloc(&pdev->dev, sizeof(*digilent), GFP_KERNEL);
+	digilent = devm_kzalloc(dev, sizeof(*digilent), GFP_KERNEL);
 	if (!digilent)
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, digilent);
+	i2c_set_clientdata(i2c, digilent);
 
 	return 0;
 }
 
-static int digilent_encoder_remove(struct platform_device *pdev)
+static int digilent_encoder_remove(struct i2c_client *i2c)
 {
 	return 0;
 }
 
+static const struct i2c_device_id digilent_encoder_i2c_match[] = {
+	{ "any", 0 },
+	{ },
+};
+MODULE_DEVICE_TABLE(i2c, digilent_encoder_i2c_match);
+
 static const struct of_device_id digilent_encoder_of_match[] = {
 	{ .compatible = "digilent,drm-encoder", },
-	{ /* end of table */ },
+	{ },
 };
 MODULE_DEVICE_TABLE(of, digilent_encoder_of_match);
 
-static struct drm_platform_encoder_driver digilent_encoder_driver = {
-	.platform_driver = {
-		.probe			= digilent_encoder_probe,
-		.remove			= digilent_encoder_remove,
-		.driver			= {
-			.owner		= THIS_MODULE,
-			.name		= "digilent-drm-enc",
+static struct drm_i2c_encoder_driver digilent_encoder_driver = {
+	.i2c_driver = {
+		.driver = {
+			.owner = THIS_MODULE,
+			.name = "digilent-drm-enc",
 			.of_match_table	= digilent_encoder_of_match,
 		},
+		.id_table = digilent_encoder_i2c_match,
+		.probe = digilent_encoder_probe,
+		.remove = digilent_encoder_remove,
 	},
 
 	.encoder_init = digilent_encoder_encoder_init,
@@ -251,15 +259,14 @@ static struct drm_platform_encoder_driver digilent_encoder_driver = {
 
 static int __init digilent_encoder_init(void)
 {
-	return platform_driver_register(&digilent_encoder_driver.platform_driver);
+	return drm_i2c_encoder_register(THIS_MODULE, &digilent_encoder_driver);
 }
+module_init(digilent_encoder_init);
 
 static void __exit digilent_encoder_exit(void)
 {
-	platform_driver_unregister(&digilent_encoder_driver.platform_driver);
+	drm_i2c_encoder_unregister(&digilent_encoder_driver);
 }
-
-module_init(digilent_encoder_init);
 module_exit(digilent_encoder_exit);
 
 MODULE_AUTHOR("Digilent, Inc.");
