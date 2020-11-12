@@ -47,12 +47,12 @@
 struct digilent_encoder {
 	struct drm_encoder *encoder;
 	struct i2c_adapter *i2c_bus;
-   bool i2c_present;
-   u32 fmax;
-   u32 hmax;
-   u32 vmax;
-   u32 hpref;
-   u32 vpref;
+	bool i2c_present;
+	u32 fmax;
+	u32 hmax;
+	u32 vmax;
+	u32 hpref;
+	u32 vpref;
 };
 
 static inline struct digilent_encoder *to_digilent_encoder(struct drm_encoder *encoder)
@@ -61,8 +61,8 @@ static inline struct digilent_encoder *to_digilent_encoder(struct drm_encoder *e
 }
 
 static bool digilent_mode_fixup(struct drm_encoder *encoder,
-			   const struct drm_display_mode *mode,
-			   struct drm_display_mode *adjusted_mode)
+				const struct drm_display_mode *mode,
+				struct drm_display_mode *adjusted_mode)
 {
 	return true;
 }
@@ -73,8 +73,7 @@ static void digilent_encoder_mode_set(struct drm_encoder *encoder,
 {
 }
 
-static void
-digilent_encoder_dpms(struct drm_encoder *encoder, int mode)
+static void digilent_encoder_dpms(struct drm_encoder *encoder, int mode)
 {
 }
 
@@ -87,61 +86,57 @@ static void digilent_encoder_restore(struct drm_encoder *encoder)
 }
 
 static int digilent_encoder_mode_valid(struct drm_encoder *encoder,
-				    struct drm_display_mode *mode)
+					struct drm_display_mode *mode)
 {
-   struct digilent_encoder *digilent = to_digilent_encoder(encoder);
-   if (mode && 
-      !(mode->flags & ((DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLCLK) | DRM_MODE_FLAG_3D_MASK)) &&
-      (mode->clock <= digilent->fmax) &&
-      (mode->hdisplay <= digilent->hmax) && 
-      (mode->vdisplay <= digilent->vmax)) 
-         return MODE_OK;
-   return MODE_BAD;
+	struct digilent_encoder *digilent = to_digilent_encoder(encoder);
+	if (mode && !(mode->flags & (DRM_MODE_FLAG_INTERLACE |
+					DRM_MODE_FLAG_DBLCLK | DRM_MODE_FLAG_3D_MASK))
+			&& mode->clock <= digilent->fmax
+			&& mode->hdisplay <= digilent->hmax
+			&& mode->vdisplay <= digilent->vmax)
+		return MODE_OK;
+	return MODE_BAD;
 }
 
 static int digilent_encoder_get_modes(struct drm_encoder *encoder,
-				   struct drm_connector *connector)
+					struct drm_connector *connector)
 {
-   struct digilent_encoder *digilent = to_digilent_encoder(encoder);
+	struct digilent_encoder *digilent = to_digilent_encoder(encoder);
 	struct edid *edid;
-   int num_modes = 0;
-   
-   if (digilent->i2c_present)
-   {
-      edid = drm_get_edid(connector, digilent->i2c_bus);
+	int num_modes = 0;
 
-      /*
-       *Other drivers tend to call update edid property after the call to 
-       *drm_add_edid_modes. If problems with modesetting, this could be why.
-       */
-      drm_connector_update_edid_property(connector, edid);
-      if (edid) 
-      {
-         num_modes = drm_add_edid_modes(connector, edid);
-         kfree(edid);
-      }
-   }
-   else
-   {
-      num_modes = drm_add_modes_noedid(connector, digilent->hmax, digilent->vmax);
-      drm_set_preferred_mode(connector, digilent->hpref, digilent->vpref);
-   }   
+	if (digilent->i2c_present) {
+		edid = drm_get_edid(connector, digilent->i2c_bus);
+
+		/*
+		 * Other drivers tend to call update edid property after the call to
+		 * drm_add_edid_modes. If problems with modesetting, this could be why.
+		 */
+		drm_connector_update_edid_property(connector, edid);
+		if (edid) {
+			num_modes = drm_add_edid_modes(connector, edid);
+			kfree(edid);
+		}
+	} else {
+		num_modes = drm_add_modes_noedid(connector, digilent->hmax, digilent->vmax);
+		drm_set_preferred_mode(connector, digilent->hpref, digilent->vpref);
+	}
+
 	return num_modes;
 }
 
 static enum drm_connector_status digilent_encoder_detect(struct drm_encoder *encoder,
-		     struct drm_connector *connector)
+			 struct drm_connector *connector)
 {
-   struct digilent_encoder *digilent = to_digilent_encoder(encoder);
+	struct digilent_encoder *digilent = to_digilent_encoder(encoder);
 
-   if (digilent->i2c_present)
-   {
-      if (drm_probe_ddc(digilent->i2c_bus))
-         return connector_status_connected;
-      return connector_status_disconnected;
-   }
-   else
-      return connector_status_unknown; 
+	if (digilent->i2c_present) {
+		if (drm_probe_ddc(digilent->i2c_bus))
+			return connector_status_connected;
+		return connector_status_disconnected;
+	}
+
+	return connector_status_unknown;
 }
 
 static struct drm_encoder_slave_funcs digilent_encoder_slave_funcs = {
@@ -156,61 +151,60 @@ static struct drm_encoder_slave_funcs digilent_encoder_slave_funcs = {
 };
 
 static int digilent_encoder_encoder_init(struct platform_device *pdev,
-				      struct drm_device *dev,
-				      struct drm_encoder_slave *encoder)
+					  struct drm_device *dev,
+					  struct drm_encoder_slave *encoder)
 {
 	struct digilent_encoder *digilent = platform_get_drvdata(pdev);
 	struct device_node *sub_node;
-   int ret;
+	int ret;
 
 	encoder->slave_priv = digilent;
 	encoder->slave_funcs = &digilent_encoder_slave_funcs;
 
 	digilent->encoder = &encoder->base;
 
-    /* get i2c adapter for edid */
-   digilent->i2c_present = false;
+	/* get i2c adapter for edid */
+	digilent->i2c_present = false;
 
 	sub_node = of_parse_phandle(pdev->dev.of_node, "digilent,edid-i2c", 0);
-	if (sub_node) 
-   {
-	   digilent->i2c_bus = of_find_i2c_adapter_by_node(sub_node);
-      if (!digilent->i2c_bus)
-		   DRM_INFO("failed to get the edid i2c adapter, using default modes\n");
-      else
-         digilent->i2c_present = true;
-	   of_node_put(sub_node);
-   }
+	if (sub_node) {
+		digilent->i2c_bus = of_find_i2c_adapter_by_node(sub_node);
+		if (!digilent->i2c_bus)
+			DRM_INFO("Failed to get the edid i2c adapter, using default modes\n");
+		else
+			digilent->i2c_present = true;
+		of_node_put(sub_node);
+	}
 
 	ret = of_property_read_u32(pdev->dev.of_node, "digilent,fmax", &digilent->fmax);
 	if (ret < 0) {
-      digilent->fmax = DIGILENT_ENC_MAX_FREQ;
+		digilent->fmax = DIGILENT_ENC_MAX_FREQ;
 		DRM_INFO("No max frequency in DT, using default %dKHz\n", DIGILENT_ENC_MAX_FREQ);
 	}
 
 	ret = of_property_read_u32(pdev->dev.of_node, "digilent,hmax", &digilent->hmax);
 	if (ret < 0) {
-      digilent->hmax = DIGILENT_ENC_MAX_H;
+		digilent->hmax = DIGILENT_ENC_MAX_H;
 		DRM_INFO("No max horizontal width in DT, using default %d\n", DIGILENT_ENC_MAX_H);
 	}
 
 	ret = of_property_read_u32(pdev->dev.of_node, "digilent,vmax", &digilent->vmax);
 	if (ret < 0) {
-      digilent->vmax = DIGILENT_ENC_MAX_V;
+		digilent->vmax = DIGILENT_ENC_MAX_V;
 		DRM_INFO("No max vertical height in DT, using default %d\n", DIGILENT_ENC_MAX_V);
 	}
 
 	ret = of_property_read_u32(pdev->dev.of_node, "digilent,hpref", &digilent->hpref);
 	if (ret < 0) {
-      digilent->hpref = DIGILENT_ENC_PREF_H;
-		if (!(digilent->i2c_present))
+		digilent->hpref = DIGILENT_ENC_PREF_H;
+		if (!digilent->i2c_present)
 			DRM_INFO("No pref horizontal width in DT, using default %d\n", DIGILENT_ENC_PREF_H);
 	}
 
 	ret = of_property_read_u32(pdev->dev.of_node, "digilent,vpref", &digilent->vpref);
 	if (ret < 0) {
-      digilent->vpref = DIGILENT_ENC_PREF_V;
-		if (!(digilent->i2c_present))
+		digilent->vpref = DIGILENT_ENC_PREF_V;
+		if (!digilent->i2c_present)
 			DRM_INFO("No pref horizontal width in DT, using default %d\n", DIGILENT_ENC_PREF_V);
 	}
 
