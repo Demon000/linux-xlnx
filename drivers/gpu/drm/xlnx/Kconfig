@@ -104,10 +104,3 @@ config DRM_XLNX_BRIDGE_VTC
 	  Currently the support is added to the Xilinx Video Mixer and
 	  Xilinx PL display CRTC drivers. This driver provides ability
 	  to generate timings through the bridge layer.
-
-config DRM_DIGILENT
-	tristate "Digilent DRM Driver"
-	depends on DRM_XLNX_BRIDGE_VTC
-	select VIDEOMODE_HELPERS
-	help
-	  DRM driver for Digilent HDMI hardware design.
